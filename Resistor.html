@@ -1,234 +1,490 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Resistor Color Code Calculator</title>
-  <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
-    body{font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#071024 0%,#051018 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:18px;max-width:900px;width:100%;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
-    h1{margin:0 0 6px 0;font-size:20px}
-    p.lead{margin:0 0 18px 0;color:var(--muted);font-size:13px}
-    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-    label{font-size:13px;color:var(--muted)}
-    select,input[type=number]{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:inherit}
-    .bands{display:flex;gap:10px;align-items:center;margin:18px 0}
-    .band{width:48px;height:140px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:inset 0 -6px 20px rgba(0,0,0,0.35);position:relative}
-    .band .label{position:absolute;bottom:6px;font-size:12px;color:rgba(0,0,0,0.6)}
-    .palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .sw{width:28px;height:20px;border-radius:4px;border:1px solid rgba(0,0,0,0.2);cursor:pointer}
-    .result{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-    .tile{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
-    .big{font-size:20px;font-weight:600}
-    footer{margin-top:14px;color:var(--muted);font-size:12px}
-    .row{display:flex;gap:8px;align-items:center}
-    button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#022;cursor:pointer}
-    .math{margin-top:8px;font-size:13px;color:var(--muted)}
-    @media(max-width:720px){.bands{overflow:auto;padding-bottom:6px}.band{height:120px;width:38px}}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Resistor Calculator — EngiCalculator</title>
+<style>
+  :root{
+    --bg-1:#071024; --bg-2:#051018; --card:#0b1220;
+    --muted:#9aa4b2; --accent:#60a5fa; --accent-strong:#0b63c6;
+    --surface:#07182a; --text:#e6eef8; --glass: rgba(255,255,255,0.03);
+    --band-height:40px;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 100%);color:var(--text)}
+  .wrap{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:36px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:22px;max-width:1100px;width:100%;box-shadow:0 12px 48px rgba(2,6,23,0.6)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  h1{margin:0;font-size:20px;color:var(--accent)}
+  p.lead{margin:6px 0 14px 0;color:var(--muted);font-size:13px}
+  .top-links{display:flex;gap:8px;align-items:center}
+  .link-btn{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.08);color:var(--accent);padding:8px 10px;border-radius:8px;text-decoration:none;font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 420px;grid-auto-rows:auto;gap:16px}
+  .panel{background:transparent;border-radius:10px;padding:12px;color:var(--text);box-shadow:inset 0 -6px 20px rgba(0,0,0,0.35)}
+  label{display:block;margin-top:8px;font-size:13px;color:var(--muted)}
+  input[type=number],select,button,textarea{width:100%;padding:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.04);border-radius:8px;background:transparent;color:var(--text);box-sizing:border-box}
+  .btn{display:inline-block;padding:8px 10px;margin:8px 6px 0 0;border-radius:8px;border:0;background:var(--accent);color:#022;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+  pre{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:6px;white-space:pre-wrap;font-family:Menlo,monospace;font-size:13px;color:var(--muted)}
+  .resistor-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px}
+  .resistor { width:320px; height:80px; border-radius:20px; background: linear-gradient(90deg,#332b22,#1e130e); position:relative; box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 -10px 40px rgba(255,255,255,0.02);}
+  .band { position:absolute; top:20px; width:28px; height:40px; border-radius:4px; transform:translateX(-50%); box-shadow:0 4px 8px rgba(0,0,0,0.45);}
+  .band.b1{ left:45%; }
+  .band.b2{ left:55%; }
+  .band.b3{ left:62%; }
+  .band.mult{ left:72%; }
+  .band.tol{ left:80%; height:30px; top:25px; width:18px; border-radius:3px; }
+  .small-note{color:var(--muted);font-size:12px}
+  .controls { display:flex; flex-direction:column; gap:10px; }
+  .row{display:flex;gap:8px}
+  .row > * { flex:1 }
+  .inline { display:inline-block; width:auto }
+  .fixed-back{ position:fixed; top:12px; left:12px; z-index:9999; }
+  .fixed-back a{ display:inline-block; padding:8px 10px; border-radius:8px; background:#60a5fa; color:#022; text-decoration:none; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.35); }
+  @media (max-width:900px){ .grid{grid-template-columns:1fr;} .resistor{width:260px;} }
+  /* color swatches */
+  .swatch{ display:inline-block; width:28px; height:16px; border-radius:3px; margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,0.25)}
+</style>
 </head>
 <body>
-  <div class="card">
-    <h1>Resistor Color Code Calculator</h1>
-    <p class="lead">Supports 3, 4, and 5-band resistors. Shows resistance, tolerance, min/max range, nearest standard value, and the math used.</p>
+  <!-- Back button -->
+  <div class="fixed-back"><a href="index.html" title="Back to EngiCalculator (index.html)">← Back to EngiCalculator</a></div>
 
-    <div class="controls">
-      <div>
-        <label for="bandsCount">Bands</label><br>
-        <select id="bandsCount">
-          <option value="3">3-band</option>
-          <option value="4" selected>4-band</option>
-          <option value="5">5-band</option>
-        </select>
-      </div>
-      <div>
-        <label for="unitPref">Display unit</label><br>
-        <select id="unitPref"><option value="auto">Auto (Ω/kΩ/MΩ)</option><option value="ohm">Ω</option><option value="kohm">kΩ</option><option value="mohm">MΩ</option></select>
-      </div>
-      <div>
-        <label for="showE12">Show nearest E12?</label><br>
-        <select id="showE12"><option value="yes">Yes</option><option value="no">No</option></select>
+  <div class="wrap">
+    <div class="card" role="main">
+      <header>
+        <div>
+          <h1>Resistor Calculator</h1>
+          <p class="lead">Decode color bands, build bands from a numeric value, and see best-fit formatting (k, M, etc.). Copy & paste the page into <code>Resistor.html</code>.</p>
+        </div>
+        <div class="top-links">
+          <a class="link-btn" href="index.html">Open EngiCalculator</a>
+        </div>
+      </header>
+
+      <div class="grid">
+        <!-- Left: main tools -->
+        <div class="panel">
+          <div class="controls">
+            <section>
+              <h3 style="margin:0;color:var(--accent-strong)">Bands → Value</h3>
+              <label>Band count:
+                <select id="bandCount" onchange="renderBandControls()">
+                  <option value="4">4-band (2 sig digits)</option>
+                  <option value="5">5-band (3 sig digits)</option>
+                </select>
+              </label>
+
+              <div id="bandControls" style="margin-top:8px"></div>
+
+              <div style="margin-top:8px">
+                <button class="btn" onclick="calcFromBands()">Calculate value</button>
+                <button class="btn ghost" onclick="resetBands()">Reset bands</button>
+              </div>
+
+              <h4 style="margin-top:12px;color:var(--muted)">Result:</h4>
+              <pre id="bandResult">No calculation yet.</pre>
+            </section>
+
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+            <section>
+              <h3 style="margin:0;color:var(--accent-strong)">Value → Bands</h3>
+              <label>Resistance (number only): <input id="valueInput" type="number" step="any" placeholder="e.g. 4700 or 4.7" /></label>
+              <label>Value unit:
+                <select id="valueUnit">
+                  <option value="BASE">Ω (ohm)</option>
+                  <option value="k">kΩ</option>
+                  <option value="M">MΩ</option>
+                </select>
+              </label>
+              <div style="margin-top:8px">
+                <button class="btn" onclick="calcBandsFromValue()">Make bands (best-fit)</button>
+                <button class="btn ghost" onclick="clearValueToBands()">Clear</button>
+              </div>
+
+              <h4 style="margin-top:12px;color:var(--muted)">Computed bands & notes:</h4>
+              <pre id="valueBandResult">No conversion yet.</pre>
+            </section>
+          </div>
+        </div>
+
+        <!-- Right: visual + legend -->
+        <div class="panel resistor-wrap">
+          <div class="resistor" aria-hidden="true">
+            <div id="band1" class="band b1" style="background:#000"></div>
+            <div id="band2" class="band b2" style="background:#000"></div>
+            <div id="band3" class="band b3" style="background:#000; display:none"></div>
+            <div id="bandMult" class="band mult" style="background:#000"></div>
+            <div id="bandTol" class="band tol" style="background:#b8860b"></div>
+          </div>
+
+          <div style="width:100%;text-align:center">
+            <div class="small-note">Resistor preview (bands update as you calculate)</div>
+          </div>
+
+          <div style="width:100%;margin-top:8px">
+            <strong style="display:block;margin-bottom:6px;color:var(--muted)">Color legend</strong>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <span class="swatch" style="background:#000"></span>Black 0
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#6b3b2f"></span>Brown 1
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#c62828"></span>Red 2
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#ff8f00"></span>Orange 3
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#f4e02e"></span>Yellow 4
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#2e7d32"></span>Green 5
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#1565c0"></span>Blue 6
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#6a1b9a"></span>Violet 7
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#9e9e9e"></span>Gray 8
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#fff"></span>White 9
+              <span style="width:10px"></span>
+              <span class="swatch" style="background:#b8860b"></span>Tolerance (gold/brown/etc.)
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
-
-    <div class="bands" id="bandsContainer"></div>
-    <div class="palette" id="palette"></div>
-
-    <div class="result">
-      <div class="tile">
-        <div style="color:var(--muted);font-size:12px">Resistance</div>
-        <div id="resText" class="big">—</div>
-        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="rawText">Raw value: — Ω</div>
-        <div class="math" id="mathText">Math: —</div>
-      </div>
-      <div class="tile">
-        <div style="color:var(--muted);font-size:12px">Tolerance & Range</div>
-        <div id="tolText" class="big">—</div>
-        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="rangeText">Min/Max: —</div>
-        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="e12Text">Nearest E12: —</div>
-      </div>
-    </div>
-
-    <footer>
-      Tip: click a color in the palette to apply it to the selected band. Click a band to select it.
-      <div style="margin-top:8px" class="row">
-        <button id="copyBtn">Copy color code</button>
-        <button id="resetBtn">Reset</button>
-      </div>
-    </footer>
   </div>
 
-  <script>
-    const colors = [
-      {name:'black',val:'#000000',digit:0,mult:1,tol:null},
-      {name:'brown',val:'#6b4423',digit:1,mult:10,tol:1},
-      {name:'red',val:'#b32a2a',digit:2,mult:100,tol:2},
-      {name:'orange',val:'#ff7a18',digit:3,mult:1000,tol:null},
-      {name:'yellow',val:'#e6d21f',digit:4,mult:10000,tol:null},
-      {name:'green',val:'#117a50',digit:5,mult:100000,tol:0.5},
-      {name:'blue',val:'#175cbb',digit:6,mult:1000000,tol:0.25},
-      {name:'violet',val:'#6e3ba6',digit:7,mult:10000000,tol:0.1},
-      {name:'grey',val:'#6b6f76',digit:8,mult:100000000,tol:0.05},
-      {name:'white',val:'#ffffff',digit:9,mult:1000000000,tol:null},
-      {name:'gold',val:'#c19100',digit:null,mult:0.1,tol:5},
-      {name:'silver',val:'#bfc7cf',digit:null,mult:0.01,tol:10}
-    ];
+<script>
+/* --------- prefixes & color maps (simple) --------- */
+const prefixes = [
+  { name: 'Mega', sym:'M', factor:1e6 }, { name: 'Kilo', sym:'k', factor:1e3 }, { name:'Base', sym:'', factor:1}
+];
 
-    const e12 = [1.0,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2];
+const colorDigit = {
+  0:'#000000', 1:'#6b3b2f', 2:'#c62828', 3:'#ff8f00', 4:'#f4e02e',
+  5:'#2e7d32', 6:'#1565c0', 7:'#6a1b9a', 8:'#9e9e9e', 9:'#ffffff'
+};
+const digitColorName = {
+  0:'Black',1:'Brown',2:'Red',3:'Orange',4:'Yellow',5:'Green',6:'Blue',7:'Violet',8:'Gray',9:'White'
+};
+/* multiplier options: label -> factor -> color */
+const multiplierOptions = [
+  {label:'×0.01 (silver)', factor:0.01, color:'#c0c0c0'},
+  {label:'×0.1 (gold)', factor:0.1, color:'#b8860b'},
+  {label:'×1', factor:1, color: colorDigit[0]},
+  {label:'×10', factor:10, color: colorDigit[1]},
+  {label:'×100', factor:100, color: colorDigit[2]},
+  {label:'×1k', factor:1e3, color: colorDigit[3]},
+  {label:'×10k', factor:1e4, color: colorDigit[4]},
+  {label:'×100k', factor:1e5, color: colorDigit[5]},
+  {label:'×1M', factor:1e6, color: colorDigit[6]},
+  {label:'×10M', factor:1e7, color: colorDigit[7]},
+  {label:'×100M', factor:1e8, color: colorDigit[8]}
+];
+const toleranceOptions = [
+  {label:'±1% (brown)', value:1, color:'#6b3b2f'},
+  {label:'±2% (red)', value:2, color:'#c62828'},
+  {label:'±5% (gold)', value:5, color:'#b8860b'},
+  {label:'±10% (silver)', value:10, color:'#c0c0c0'}
+];
 
-    const bandsContainer = document.getElementById('bandsContainer');
-    const palette = document.getElementById('palette');
-    const bandsCount = document.getElementById('bandsCount');
-    const unitPref = document.getElementById('unitPref');
-    const showE12 = document.getElementById('showE12');
+/* --------- dom nodes --------- */
+const bandControls = document.getElementById('bandControls');
+const bandResult = document.getElementById('bandResult');
+const valueBandResult = document.getElementById('valueBandResult');
+const band1 = document.getElementById('band1');
+const band2 = document.getElementById('band2');
+const band3 = document.getElementById('band3');
+const bandMult = document.getElementById('bandMult');
+const bandTol = document.getElementById('bandTol');
 
-    let selectedBand = 0;
-    let bandColors = [];
+function renderBandControls(){
+  const count = document.getElementById('bandCount').value;
+  bandControls.innerHTML = '';
+  if (count === '4'){
+    // 4-band: digit1,digit2,multiplier,tolerance
+    bandControls.appendChild(makeDigitSelect('d1', 'Digit 1'));
+    bandControls.appendChild(makeDigitSelect('d2', 'Digit 2'));
+    bandControls.appendChild(makeMultiplierSelect('mult'));
+    bandControls.appendChild(makeToleranceSelect('tol'));
+    band3.style.display = 'none';
+  } else {
+    // 5-band: digit1,digit2,digit3,multiplier,tolerance
+    bandControls.appendChild(makeDigitSelect('d1', 'Digit 1'));
+    bandControls.appendChild(makeDigitSelect('d2', 'Digit 2'));
+    bandControls.appendChild(makeDigitSelect('d3', 'Digit 3'));
+    bandControls.appendChild(makeMultiplierSelect('mult'));
+    bandControls.appendChild(makeToleranceSelect('tol'));
+    band3.style.display = 'block';
+  }
+}
 
-    function createPalette(){
-      palette.innerHTML='';
-      colors.forEach((c,idx)=>{
-        const sw=document.createElement('div');
-        sw.className='sw';
-        sw.style.background=c.val;
-        sw.title=c.name;
-        sw.addEventListener('click',()=>{
-          bandColors[selectedBand]=idx;
-          renderBands();
-          compute();
-        });
-        palette.appendChild(sw);
-      });
+function makeDigitSelect(id, labelText){
+  const wrap = document.createElement('div');
+  wrap.className = 'row';
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  const sel = document.createElement('select');
+  sel.id = id;
+  for (let d=0; d<=9; d++){
+    const opt = new Option(`${d} — ${digitColorName[d]}`, d);
+    sel.add(opt);
+  }
+  sel.value = 0;
+  label.appendChild(sel);
+  wrap.appendChild(label);
+  return wrap;
+}
+
+function makeMultiplierSelect(id){
+  const wrap = document.createElement('div');
+  wrap.className = 'row';
+  const label = document.createElement('label');
+  label.textContent = 'Multiplier';
+  const sel = document.createElement('select');
+  sel.id = id;
+  multiplierOptions.forEach((m, i) => sel.add(new Option(m.label, i)));
+  sel.value = 2; // default ×1
+  label.appendChild(sel);
+  wrap.appendChild(label);
+  return wrap;
+}
+
+function makeToleranceSelect(id){
+  const wrap = document.createElement('div');
+  wrap.className = 'row';
+  const label = document.createElement('label');
+  label.textContent = 'Tolerance';
+  const sel = document.createElement('select');
+  sel.id = id;
+  toleranceOptions.forEach((t,i)=> sel.add(new Option(t.label, i)));
+  sel.value = 2; // default gold ±5%
+  label.appendChild(sel);
+  wrap.appendChild(label);
+  return wrap;
+}
+
+/* ---------- helpers ---------- */
+function formatNumber(n){
+  if (n === null || n === undefined || Number.isNaN(n)) return 'NaN';
+  if (!isFinite(n)) return (n === Infinity ? 'Infinity' : '-Infinity');
+  // show up to 12 significant figures, but trim trailing zeros
+  let s = Number(n).toPrecision(12);
+  s = (Number(s)).toString();
+  return s;
+}
+function chooseBestFit(value){
+  if (Number.isNaN(value)) return { raw: value, converted: value, sym: '', factor: 1 };
+  if (value === 0) return { raw: 0, converted: 0, sym: '', factor: 1 };
+  const absV = Math.abs(value);
+  const pref = [{sym:'M',f:1e6},{sym:'k',f:1e3},{sym:'',f:1}];
+  for (let p of pref){
+    if (absV >= p.f){
+      const conv = value / p.f;
+      const rounded = parseFloat(conv.toPrecision(4));
+      return { raw: value, converted: rounded, sym: p.sym, factor: p.f };
     }
+  }
+  return { raw: value, converted: value, sym:'', factor:1 };
+}
 
-    function renderBands(){
-      bandsContainer.innerHTML='';
-      const count = parseInt(bandsCount.value,10);
-      const bandNames = (count===3)?['1','2','mult']:(count===4)?['1','2','mult','tol']:['1','2','3','mult','tol'];
-      for(let i=0;i<bandNames.length;i++){
-        const el=document.createElement('div');
-        el.className='band';
-        const cIndex = bandColors[i];
-        el.style.background = cIndex!=null ? colors[cIndex].val : 'linear-gradient(180deg,#0a1530,#062031)';
-        el.dataset.index=i;
-        const lbl=document.createElement('div'); lbl.className='label'; lbl.textContent=bandNames[i];
-        el.appendChild(lbl);
-        el.addEventListener('click',()=>{selectedBand=i; renderBands();});
-        if(i===selectedBand){ el.style.outline='3px solid rgba(96,165,250,0.18)'; }
-        bandsContainer.appendChild(el);
-      }
+/* ---------- band -> value ---------- */
+function calcFromBands(){
+  const count = document.getElementById('bandCount').value;
+  try {
+    if (count === '4'){
+      const d1 = parseInt(document.getElementById('d1').value,10);
+      const d2 = parseInt(document.getElementById('d2').value,10);
+      const m = multiplierOptions[parseInt(document.getElementById('mult').value,10)];
+      const tol = toleranceOptions[parseInt(document.getElementById('tol').value,10)];
+      const base = (d1*10 + d2) * m.factor;
+      showBandResult(base, tol.value, [{i:d1},{i:d2},{mult:m},{tol:tol}]);
+    } else {
+      const d1 = parseInt(document.getElementById('d1').value,10);
+      const d2 = parseInt(document.getElementById('d2').value,10);
+      const d3 = parseInt(document.getElementById('d3').value,10);
+      const m = multiplierOptions[parseInt(document.getElementById('mult').value,10)];
+      const tol = toleranceOptions[parseInt(document.getElementById('tol').value,10)];
+      const base = (d1*100 + d2*10 + d3) * m.factor;
+      showBandResult(base, tol.value, [{i:d1},{i:d2},{i:d3},{mult:m},{tol:tol}]);
     }
+  } catch (e){
+    bandResult.textContent = 'Error reading bands — check selections.';
+  }
+}
+function showBandResult(base, tolPercent, parts){
+  const bf = chooseBestFit(base);
+  const lines = [];
+  lines.push(`Raw resistance: ${formatNumber(base)} Ω`);
+  lines.push(`Best-fit: ${formatNumber(bf.converted)} ${bf.sym}Ω`);
+  lines.push(`Tolerance: ±${tolPercent}%`);
+  lines.push('');
+  lines.push('Steps:');
+  // show per part breakdown if present
+  for (let p of parts){
+    if (p.i !== undefined) lines.push(`Digit: ${p.i} → ${digitColorName[p.i]}`);
+    if (p.mult) lines.push(`Multiplier: ${p.mult.label}`);
+    if (p.tol) lines.push(`Tolerance: ${p.tol.label}`);
+  }
+  bandResult.textContent = lines.join('\n');
 
-    function compute(){
-      const count = parseInt(bandsCount.value,10);
-      const idxs = bandColors.slice();
-      const resultEl = document.getElementById('resText');
-      const rawEl = document.getElementById('rawText');
-      const tolEl = document.getElementById('tolText');
-      const e12El = document.getElementById('e12Text');
-      const rangeEl = document.getElementById('rangeText');
-      const mathEl = document.getElementById('mathText');
+  // update visual bands
+  // map parts to DOM bands - first two/three digits, then mult, then tol
+  function setColor(el, color){ if (el) el.style.background = color; }
+  if (parts.length >= 3 && parts[2].i !== undefined){
+    setColor(band1, colorDigit[parts[0].i]);
+    setColor(band2, colorDigit[parts[1].i]);
+    setColor(band3, colorDigit[parts[2].i] || '#000');
+  } else {
+    setColor(band1, colorDigit[parts[0].i]);
+    setColor(band2, colorDigit[parts[1].i]);
+  }
+  setColor(bandMult, parts.find(p=>p.mult).mult.color);
+  setColor(bandTol, parts.find(p=>p.tol).color);
+}
 
-      if((count===3 && (idxs[0]==null||idxs[1]==null||idxs[2]==null)) ||
-         (count===4 && (idxs[0]==null||idxs[1]==null||idxs[2]==null)) ||
-         (count===5 && (idxs[0]==null||idxs[1]==null||idxs[2]==null||idxs[3]==null))){
-        resultEl.textContent='—'; rawEl.textContent='Raw value: — Ω'; tolEl.textContent='—'; e12El.textContent='—'; rangeEl.textContent='—'; mathEl.textContent='Math: —'; return;
-      }
+/* ---------- value -> bands ---------- */
+function calcBandsFromValue(){
+  const raw = parseFloat(document.getElementById('valueInput').value);
+  const unit = document.getElementById('valueUnit').value; // BASE, k, M
+  if (Number.isNaN(raw)){
+    valueBandResult.textContent = 'Enter a valid numeric resistance.';
+    return;
+  }
+  const unitFactor = (unit === 'k' ? 1e3 : (unit === 'M' ? 1e6 : 1));
+  const base = raw * unitFactor;
 
-      let digits=[],multiplier,tol;
-      if(count===3){
-        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit];
-        multiplier=colors[idxs[2]].mult;
-        tol=5; // default 3-band tolerance ±5%
-      } else if(count===4){
-        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit];
-        multiplier=colors[idxs[2]].mult;
-        tol=colors[idxs[3]]?colors[idxs[3]].tol:5;
-      } else {
-        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit, colors[idxs[2]].digit];
-        multiplier=colors[idxs[3]].mult;
-        tol=colors[idxs[4]]?colors[idxs[4]].tol:5;
-      }
+  // Attempt 5-band (3 sig digits) first if possible, otherwise 4-band
+  // find exponent so that mantissa has 3 digits (100-999) or 2 digits (10-99)
+  // get base in scientific: mantissa * 10^exp
+  const absBase = Math.abs(base);
+  if (!isFinite(absBase) || absBase === 0){
+    valueBandResult.textContent = 'Zero or invalid resistance.';
+    return;
+  }
+  const exp = Math.floor(Math.log10(absBase));
+  const mant = absBase / Math.pow(10, exp); // between 1 and 9.99...
+  // For 5-band, want mantissa*10^(exp-2) with 3 digits: target mant * 10^(exp-2) -> integer 100-999
+  // compute 5-band candidate:
+  const fiveMant = Math.round(absBase / Math.pow(10, exp - 2)); // integer ~100-999
+  let candidate5 = fiveMant * Math.pow(10, exp - 2);
+  // compute 4-band candidate:
+  const fourMant = Math.round(absBase / Math.pow(10, exp - 1)); // integer ~10-99
+  let candidate4 = fourMant * Math.pow(10, exp - 1);
 
-      if(digits.some(d=>d==null)){ resultEl.textContent='Invalid'; return; }
+  // choose which gives closer value (relative)
+  const err5 = Math.abs(candidate5 - absBase) / absBase;
+  const err4 = Math.abs(candidate4 - absBase) / absBase;
 
-      let base=0; for(let i=0;i<digits.length;i++){ base = base*10 + digits[i]; }
-      let raw = base * multiplier;
-
-      function fmt(v){
-        const pref=unitPref.value;
-        if(pref==='ohm') return v.toLocaleString()+" Ω";
-        if(pref==='kohm') return (v/1e3).toLocaleString()+" kΩ";
-        if(pref==='mohm') return (v/1e6).toLocaleString()+" MΩ";
-        if(v>=1e6) return (v/1e6).toFixed(3).replace(/\.0+$/,'')+" MΩ";
-        if(v>=1e3) return (v/1e3).toFixed(3).replace(/\.0+$/,'')+" kΩ";
-        return v+" Ω";
-      }
-
-      resultEl.textContent = fmt(raw);
-      rawEl.textContent = 'Raw value: ' + raw + ' Ω';
-      tolEl.textContent = '±' + tol + ' %';
-
-      let min = raw * (1 - tol/100);
-      let max = raw * (1 + tol/100);
-      rangeEl.textContent = fmt(min) + ' — ' + fmt(max);
-
-      mathEl.textContent = 'Math: ('+digits.join('')+') × ' + multiplier + ' = ' + raw + ' Ω';
-
-      if(showE12.value==='yes'){
-        let best={diff:Infinity,val:null};
-        for(let exp=-2;exp<=9;exp++){
-          e12.forEach(mult=>{
-            const v = mult * Math.pow(10,exp);
-            const diff = Math.abs(v-raw);
-            if(diff < best.diff){ best={diff,v}; }
-          });
-        }
-        e12El.textContent = best.val.toLocaleString()+ ' Ω (Δ '+Math.round(best.diff)+' Ω)';
-      } else {
-        e12El.textContent='—';
-      }
+  // prefer 5-band if digits fit 3-digit (100-999) and error smaller
+  let use5 = false;
+  if (fiveMant >= 100 && fiveMant <= 999 && err5 <= err4) use5 = true;
+  if (use5){
+    // Build three digits from fiveMant (100-999) and multiplier exponent = exp - 2
+    const d1 = Math.floor(fiveMant / 100) % 10;
+    const d2 = Math.floor((fiveMant % 100) / 10);
+    const d3 = fiveMant % 10;
+    const multiplierExp = exp - 2;
+    const multiplierObj = findMultiplierByExp(multiplierExp);
+    const tol = toleranceOptions[2]; // default ±5% gold
+    // show
+    const lines = [];
+    lines.push(`Requested: ${formatNumber(base)} Ω`);
+    lines.push(`Using 5-band approximation: ${d1}${d2}${d3} × 10^${multiplierExp} → ${formatNumber(candidate5)} Ω`);
+    lines.push('');
+    lines.push(`Bands: ${d1} ${d2} ${d3} | multiplier: ${multiplierObj.label} | tolerance: ${tol.label}`);
+    valueBandResult.textContent = lines.join('\n');
+    // update visuals
+    setVisualBands([d1,d2,d3], multiplierObj.color, tol.color);
+    return;
+  } else {
+    // use 4-band
+    let twoDigits = fourMant;
+    // ensure twoDigits is between 10 and 99; clamp if necessary
+    if (twoDigits < 10){
+      twoDigits = 10;
+    } else if (twoDigits > 99){
+      twoDigits = 99;
     }
+    const d1 = Math.floor(twoDigits / 10);
+    const d2 = twoDigits % 10;
+    const multiplierExp = exp - 1;
+    const multiplierObj = findMultiplierByExp(multiplierExp);
+    const candidate = d1*10 + d2;
+    const approx = (candidate) * Math.pow(10, multiplierExp);
+    const tol = toleranceOptions[2];
+    const lines = [];
+    lines.push(`Requested: ${formatNumber(base)} Ω`);
+    lines.push(`Using 4-band approximation: ${d1}${d2} × 10^${multiplierExp} → ${formatNumber(approx)} Ω`);
+    lines.push('');
+    lines.push(`Bands: ${d1} ${d2} | multiplier: ${multiplierObj.label} | tolerance: ${tol.label}`);
+    valueBandResult.textContent = lines.join('\n');
+    setVisualBands([d1,d2], multiplierObj.color, tol.color);
+    return;
+  }
+}
 
-    bandsCount.addEventListener('change',()=>{
-      const count=parseInt(bandsCount.value,10);
-      if(count===3){ bandColors = [null,null,null]; }
-      if(count===4){ bandColors = [null,null,null,null]; }
-      if(count===5){ bandColors = [null,null,null,null,null]; }
-      selectedBand=0; renderBands(); compute();
-    });
-    unitPref.addEventListener('change',compute);
-    showE12.addEventListener('change',compute);
+/* find multiplier object from exponent (10^exp) */
+function findMultiplierByExp(exp){
+  // multiplierOptions entries have factor; find one whose factor = 10^exp
+  for (let m of multiplierOptions){
+    // handle small numerical rounding
+    if (Math.abs(Math.log10(m.factor) - exp) < 0.001) return m;
+  }
+  // fallback: derive closest
+  const candidate = multiplierOptions.reduce((a,b) => Math.abs(Math.log10(a.factor)-exp) < Math.abs(Math.log10(b.factor)-exp) ? a : b);
+  return candidate;
+}
 
-    document.getElementById('resetBtn').addEventListener('click',()=>{ bandColors=[null,null,null]; selectedBand=0; renderBands(); compute(); });
-    document.getElementById('copyBtn').addEventListener('click',()=>{
-      const code = bandColors.map(i=> i!=null? colors[i].name : '—').join(', ');
-      navigator.clipboard?.writeText(code).then(()=>{ alert('Copied: '+code); }).catch(()=>{ prompt('Copy this:', code); });
-    });
+/* update visual bands: digits array (len 2 or 3), multiplier color, tolerance color */
+function setVisualBands(digits, multColor, tolColor){
+  if (digits.length >= 3){
+    band1.style.background = colorDigit[digits[0]];
+    band2.style.background = colorDigit[digits[1]];
+    band3.style.background = colorDigit[digits[2]];
+    band3.style.display = 'block';
+  } else {
+    band1.style.background = colorDigit[digits[0]];
+    band2.style.background = colorDigit[digits[1]];
+    band3.style.display = 'none';
+  }
+  bandMult.style.background = multColor;
+  bandTol.style.background = tolColor;
+}
 
-    function init(){ bandColors=[null,null,null]; createPalette(); renderBands(); compute(); }
-    init();
-  </script>
+/* helper: reset bands visuals to default */
+function resetBands(){
+  document.getElementById('d1') && (document.getElementById('d1').value = 0);
+  document.getElementById('d2') && (document.getElementById('d2').value = 0);
+  document.getElementById('d3') && (document.getElementById('d3').value = 0);
+  document.getElementById('mult') && (document.getElementById('mult').value = 2);
+  document.getElementById('tol') && (document.getElementById('tol').value = 2);
+  bandResult.textContent = 'No calculation yet.';
+  valueBandResult.textContent = 'No conversion yet.';
+  band1.style.background = colorDigit[0];
+  band2.style.background = colorDigit[0];
+  band3.style.display = 'none';
+  bandMult.style.background = colorDigit[0];
+  bandTol.style.background = toleranceOptions[2].color;
+}
+
+/* clear value->bands inputs & visuals */
+function clearValueToBands(){
+  document.getElementById('valueInput').value = '';
+  document.getElementById('valueUnit').value = 'BASE';
+  valueBandResult.textContent = 'No conversion yet.';
+  resetBands();
+}
+
+/* initial render */
+renderBandControls();
+resetBands();
+
+/* ensure Enter key triggers things */
+document.getElementById('valueInput').addEventListener('keydown', e => { if (e.key === 'Enter') calcBandsFromValue(); });
+document.getElementById('bandControls').addEventListener('keydown', e => { if (e.key === 'Enter') calcFromBands(); });
+
+</script>
 </body>
 </html>
