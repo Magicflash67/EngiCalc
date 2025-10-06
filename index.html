@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Engineering Notation · Ohm's Law · Resistors</title>
+<style>
+  /* Resistor-inspired theme (dark, card, soft glow) */
+  :root{
+    --bg-1:#071024;
+    --bg-2:#051018;
+    --card:#0b1220;
+    --muted:#9aa4b2;
+    --accent:#60a5fa;
+    --accent-strong:#0b63c6;
+    --surface:#07182a;
+    --text:#e6eef8;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 100%);color:var(--text)}
+  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:20px;max-width:1100px;width:100%;box-shadow:0 10px 40px rgba(2,6,23,0.6)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  h1{margin:0;font-size:20px;color:var(--accent)}
+  p.lead{margin:6px 0 14px 0;color:var(--muted);font-size:13px}
+  .top-links{display:flex;gap:8px;align-items:center}
+  .link-btn{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.08);color:var(--accent);padding:8px 10px;border-radius:8px;text-decoration:none;font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:auto;gap:16px}
+  .card-inner{background:transparent;border-radius:10px;padding:12px}
+  .panel{background:rgba(255,255,255,0.02);border-radius:10px;padding:12px;color:var(--text);box-shadow:inset 0 -6px 20px rgba(0,0,0,0.35)}
+  label{display:block;margin-top:8px;font-size:13px;color:var(--muted)}
+  input[type=number],select,button,textarea{width:100%;padding:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.04);border-radius:8px;background:transparent;color:var(--text);box-sizing:border-box}
+  .btn{display:inline-block;padding:8px 10px;margin:8px 6px 0 0;border-radius:8px;border:0;background:var(--accent);color:#022;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+  pre{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:6px;white-space:pre-wrap;font-family:Menlo,monospace;font-size:13px;color:var(--muted)}
+  .res-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .res-row input{flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.03);background:transparent}
+  .res-row select{width:110px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.03);background:transparent}
+  .res-row button{padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
+  hr.sep{border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div>
+          <h1>Engineering Notation · Ohm's Law · Resistors</h1>
+          <p class="lead">Portable toolkit — Manual & Auto converters, Ohm's law with step math, and series/parallel resistor tools. Styled to match the Resistor calculator.</p>
+        </div>
+        <div class="top-links">
+          <!-- Link to resistor page (you said you'll update this later) -->
+          <a id="resistorLink" class="link-btn" href="Resistor.html">Open Resistor Calculator</a>
+        </div>
+      </header>
+
+      <div class="grid">
+        <!-- Manual Converter -->
+        <div class="panel" id="manualCard">
+          <h2 style="margin-top:0;color:var(--accent-strong)">Manual Converter (Exact math)</h2>
+          <label>Value (number only): <input id="manualValue" type="number" step="any" /></label>
+          <label>From:
+            <select id="manualFrom"></select>
+          </label>
+          <label>To:
+            <select id="manualTo"></select>
+          </label>
+
+          <div style="margin-top:10px">
+            <button class="btn" onclick="manualConvert()">Convert</button>
+            <button class="btn ghost" onclick="clearManual()">Clear</button>
+          </div>
+
+          <h4 style="margin-top:12px;color:var(--muted)">Math & Result (exact):</h4>
+          <pre id="manualResult">No conversion yet.</pre>
+        </div>
+
+        <!-- Auto Best-Fit -->
+        <div class="panel" id="autoCard">
+          <h2 style="margin-top:0;color:var(--accent-strong)">Auto Best-Fit Converter</h2>
+          <label>Value (base number): <input id="autoValue" type="number" step="any" /></label>
+
+          <div style="margin-top:10px">
+            <button class="btn" onclick="autoConvert()">Convert</button>
+            <button class="btn ghost" onclick="clearAuto()">Clear</button>
+          </div>
+
+          <h4 style="margin-top:12px;color:var(--muted)">Math & Result (raw → best-fit):</h4>
+          <pre id="autoResult">No conversion yet.</pre>
+        </div>
+
+        <!-- Ohm's Law -->
+        <div class="panel" id="ohmCard">
+          <h2 style="margin-top:0;color:var(--accent-strong)">Ohm's Law Calculator</h2>
+          <p style="color:var(--muted);font-size:13px">Provide any <b>two</b> of V, I, R or P. Use "Insert Manual" to place the last manual base value into any field.</p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Voltage V (V): <input id="ohmV" type="number" step="any" /></label>
+            <label>Current I (A): <input id="ohmI" type="number" step="any" /></label>
+            <label>Resistance R (Ω): <input id="ohmR" type="number" step="any" /></label>
+            <label>Power P (W): <input id="ohmP" type="number" step="any" /></label>
+          </div>
+
+          <div style="margin-top:10px">
+            <button class="btn" onclick="solveOhms()">Calculate</button>
+            <button class="btn ghost" onclick="clearOhm()">Clear</button>
+            <button class="btn" onclick="insertManual('V')">Insert Manual → V</button>
+            <button class="btn" onclick="insertManual('I')">Insert Manual → I</button>
+            <button class="btn" onclick="insertManual('R')">Insert Manual → R</button>
+            <button class="btn" onclick="insertManual('P')">Insert Manual → P</button>
+          </div>
+
+          <h4 style="margin-top:12px;color:var(--muted)">Math & Results (raw & best-fit):</h4>
+          <pre id="ohmResult">No calculation yet.</pre>
+        </div>
+
+        <!-- Resistor Calculators -->
+        <div class="panel" id="resCard">
+          <h2 style="margin-top:0;color:var(--accent-strong)">Resistor Calculators</h2>
+
+          <section>
+            <h3 style="margin-bottom:6px;color:var(--muted)">Series (sum)</h3>
+            <div id="seriesList"></div>
+            <div style="margin-top:8px">
+              <button class="btn" onclick="addResistor('series')">Add Resistor</button>
+              <button class="btn" onclick="calcSeries()">Calculate Series</button>
+              <button class="btn ghost" onclick="clearResistors('series')">Clear Series</button>
+            </div>
+            <h4 style="margin-top:8px;color:var(--muted)">Steps & Result:</h4>
+            <pre id="seriesResult">No calculation yet.</pre>
+          </section>
+
+          <hr class="sep">
+
+          <section>
+            <h3 style="margin-bottom:6px;color:var(--muted)">Parallel (reciprocal)</h3>
+            <div id="parallelList"></div>
+            <div style="margin-top:8px">
+              <button class="btn" onclick="addResistor('parallel')">Add Resistor</button>
+              <button class="btn" onclick="calcParallel()">Calculate Parallel</button>
+              <button class="btn ghost" onclick="clearResistors('parallel')">Clear Parallel</button>
+            </div>
+            <h4 style="margin-top:8px;color:var(--muted)">Steps & Result:</h4>
+            <pre id="parallelResult">No calculation yet.</pre>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Keep original JS functionality (unchanged) -->
+<script>
+/* ----------------- Prefixes (Exa → Atto) ----------------- */
+const prefixes = [
+  { name: 'Exa',   sym: 'E', factor: 1e18 },
+  { name: 'Peta',  sym: 'P', factor: 1e15 },
+  { name: 'Tera',  sym: 'T', factor: 1e12 },
+  { name: 'Giga',  sym: 'G', factor: 1e9  },
+  { name: 'Mega',  sym: 'M', factor: 1e6  },
+  { name: 'Kilo',  sym: 'k', factor: 1e3  },
+  { name: 'Base',  sym: '',  factor: 1    },
+  { name: 'Milli', sym: 'm', factor: 1e-3 },
+  { name: 'Micro', sym: 'µ', factor: 1e-6 },
+  { name: 'Nano',  sym: 'n', factor: 1e-9 },
+  { name: 'Pico',  sym: 'p', factor: 1e-12},
+  { name: 'Femto', sym: 'f', factor: 1e-15},
+  { name: 'Atto',  sym: 'a', factor: 1e-18}
+];
+
+const prefixBySym = {};
+prefixes.forEach(p => prefixBySym[p.sym || 'BASE'] = p);
+const prefixesDesc = [...prefixes].sort((a,b)=>b.factor - a.factor);
+
+/* ---------- Populate manual dropdowns ---------- */
+const manualFrom = document.getElementById('manualFrom');
+const manualTo   = document.getElementById('manualTo');
+
+function makeLabel(p){ return p.sym ? `${p.sym} (${p.name})` : `Base (${p.name})`; }
+function makeOptionValue(p){ return p.sym || 'BASE'; }
+
+prefixes.forEach(p=>{
+  manualFrom.add(new Option(makeLabel(p), makeOptionValue(p)));
+  manualTo.add(new Option(makeLabel(p), makeOptionValue(p)));
+});
+manualFrom.value = 'k';
+manualTo.value   = 'BASE';
+
+/* store last manual base value */
+let lastManualBase = null;
+
+/* helpers */
+function findPrefixFactor(token){
+  const key = token || 'BASE';
+  return (prefixBySym[key] || prefixBySym['BASE']).factor;
+}
+function findPrefixSym(token){
+  const key = token || 'BASE';
+  return (prefixBySym[key] || prefixBySym['BASE']).sym;
+}
+function formatNumber(n){
+  if (n === null || n === undefined || Number.isNaN(n)) return 'NaN';
+  let s = Number(n).toPrecision(12);
+  s = (Number(s)).toString();
+  return s;
+}
+function chooseBestFit(value){
+  if (Number.isNaN(value)) return { raw: value, converted: value, sym: '', factor: 1 };
+  if (value === 0) return { raw: 0, converted: 0, sym: '', factor: 1 };
+  const absV = Math.abs(value);
+  for (let p of prefixesDesc){
+    if (absV >= p.factor){
+      const conv = value / p.factor;
+      const rounded = parseFloat(conv.toPrecision(3));
+      return { raw: value, converted: rounded, sym: p.sym, factor: p.factor };
+    }
+  }
+  const last = prefixesDesc[prefixesDesc.length - 1];
+  const conv = value / last.factor;
+  return { raw: value, converted: parseFloat(conv.toPrecision(3)), sym: last.sym, factor: last.factor };
+}
+
+/* ----------------- Manual Converter ----------------- */
+function manualConvert(){
+  const rawVal = parseFloat(document.getElementById('manualValue').value);
+  const fromToken = document.getElementById('manualFrom').value;
+  const toToken   = document.getElementById('manualTo').value;
+
+  if (Number.isNaN(rawVal)){
+    document.getElementById('manualResult').textContent = 'Enter a valid number.';
+    return;
+  }
+
+  const fromFactor = findPrefixFactor(fromToken);
+  const toFactor   = findPrefixFactor(toToken);
+
+  const base = rawVal * fromFactor;
+  const converted = base / toFactor;
+
+  lastManualBase = base;
+
+  const fromSym = findPrefixSym(fromToken) || '';
+  const toSym   = findPrefixSym(toToken) || '';
+
+  const lines = [];
+  lines.push(`Original input: ${formatNumber(rawVal)} ${fromSym}`);
+  lines.push('');
+  lines.push(`Step 1 — convert to base units:`);
+  lines.push(`  ${formatNumber(rawVal)} × ${formatNumber(fromFactor)} = ${formatNumber(base)}`);
+  lines.push('');
+  lines.push(`Step 2 — convert base → target (${toSym || 'Base'}):`);
+  lines.push(`  ${formatNumber(base)} ÷ ${formatNumber(toFactor)} = ${formatNumber(converted)} ${toSym}`);
+  lines.push('');
+  lines.push(`Final (exact): ${formatNumber(converted)} ${toSym}`);
+
+  document.getElementById('manualResult').textContent = lines.join('\n');
+}
+function clearManual(){
+  document.getElementById('manualValue').value='';
+  document.getElementById('manualResult').textContent='No conversion yet.';
+  lastManualBase = null;
+}
+
+/* ----------------- Auto Converter ----------------- */
+function autoConvert(){
+  const raw = parseFloat(document.getElementById('autoValue').value);
+  if (Number.isNaN(raw)){
+    document.getElementById('autoResult').textContent = 'Enter a valid number.';
+    return;
+  }
+  const bf = chooseBestFit(raw);
+  const convExact = raw / bf.factor;
+  const lines = [];
+  lines.push(`Original (raw): ${formatNumber(raw)}`);
+  lines.push(`Step — pick prefix with factor ${formatNumber(bf.factor)} (symbol: '${bf.sym || 'Base'}')`);
+  lines.push(`Divide: ${formatNumber(raw)} ÷ ${formatNumber(bf.factor)} = ${formatNumber(convExact)}`);
+  lines.push(`Round mantissa to 3 significant digits → ${formatNumber(bf.converted)} ${bf.sym}`);
+  lines.push('');
+  lines.push(`Result: ${formatNumber(bf.converted)} ${bf.sym}`);
+  document.getElementById('autoResult').textContent = lines.join('\n');
+}
+function clearAuto(){ document.getElementById('autoValue').value=''; document.getElementById('autoResult').textContent='No conversion yet.'; }
+
+/* ----------------- Insert Manual base into Ohm ----------------- */
+function insertManual(which){
+  if (lastManualBase === null){
+    alert('No manual conversion done yet (no base value to insert).');
+    return;
+  }
+  document.getElementById('ohm' + which).value = lastManualBase;
+}
+
+/* ----------------- Ohm's Law (show math + best-fit outputs) ----------------- */
+function solveOhms(){
+  let V = parseFloat(document.getElementById('ohmV').value);
+  let I = parseFloat(document.getElementById('ohmI').value);
+  let R = parseFloat(document.getElementById('ohmR').value);
+  let P = parseFloat(document.getElementById('ohmP').value);
+
+  const provided = [V,I,R,P].filter(x => !Number.isNaN(x)).length;
+  if (provided < 2){
+    document.getElementById('ohmResult').textContent = 'Provide at least two known values to solve.';
+    return;
+  }
+
+  const steps = [];
+  const isN = x => Number.isNaN(x);
+
+  if (isN(V) && !isN(I) && !isN(R)){
+    V = I * R;
+    steps.push(`V = I × R = ${formatNumber(I)} × ${formatNumber(R)} = ${formatNumber(V)} V`);
+  }
+  if (isN(V) && !isN(P) && !isN(I)){
+    V = P / I;
+    steps.push(`V = P ÷ I = ${formatNumber(P)} ÷ ${formatNumber(I)} = ${formatNumber(V)} V`);
+  }
+  if (isN(V) && !isN(P) && !isN(R)){
+    V = Math.sqrt(P * R);
+    steps.push(`V = √(P × R) = √(${formatNumber(P)} × ${formatNumber(R)}) = ${formatNumber(V)} V`);
+  }
+
+  if (isN(I) && !isN(V) && !isN(R)){
+    I = V / R;
+    steps.push(`I = V ÷ R = ${formatNumber(V)} ÷ ${formatNumber(R)} = ${formatNumber(I)} A`);
+  }
+  if (isN(I) && !isN(P) && !isN(V)){
+    I = P / V;
+    steps.push(`I = P ÷ V = ${formatNumber(P)} ÷ ${formatNumber(V)} = ${formatNumber(I)} A`);
+  }
+  if (isN(I) && !isN(P) && !isN(R)){
+    I = Math.sqrt(P / R);
+    steps.push(`I = √(P ÷ R) = √(${formatNumber(P)} ÷ ${formatNumber(R)}) = ${formatNumber(I)} A`);
+  }
+
+  if (isN(R) && !isN(V) && !isN(I)){
+    R = V / I;
+    steps.push(`R = V ÷ I = ${formatNumber(V)} ÷ ${formatNumber(I)} = ${formatNumber(R)} Ω`);
+  }
+  if (isN(R) && !isN(V) && !isN(P)){
+    R = (V*V) / P;
+    steps.push(`R = V² ÷ P = ${formatNumber(V)}² ÷ ${formatNumber(P)} = ${formatNumber(R)} Ω`);
+  }
+
+  if (isN(P) && !isN(V) && !isN(I)){
+    P = V * I;
+    steps.push(`P = V × I = ${formatNumber(V)} × ${formatNumber(I)} = ${formatNumber(P)} W`);
+  }
+  if (isN(P) && !isN(V) && !isN(R)){
+    P = (V * V) / R;
+    steps.push(`P = V² ÷ R = ${formatNumber(V)}² ÷ ${formatNumber(R)} = ${formatNumber(P)} W`);
+  }
+  if (isN(P) && !isN(I) && !isN(R)){
+    P = I * I * R;
+    steps.push(`P = I² × R = ${formatNumber(I)}² × ${formatNumber(R)} = ${formatNumber(P)} W`);
+  }
+
+  if ([V,I,R,P].some(x=>Number.isNaN(x))){
+    document.getElementById('ohmResult').textContent = 'Could not compute all values from the provided inputs. Check inputs.';
+    return;
+  }
+
+  const out = [];
+  out.push('Computation steps:');
+  out.push(...steps);
+  out.push('');
+  out.push('Final (raw & best-fit):');
+
+  const bfV = chooseBestFit(V);
+  const bfI = chooseBestFit(I);
+  const bfR = chooseBestFit(R);
+  const bfP = chooseBestFit(P);
+
+  out.push(`V: raw = ${formatNumber(V)} V    → best-fit = ${formatNumber(bfV.converted)} ${bfV.sym}V`);
+  out.push(`I: raw = ${formatNumber(I)} A    → best-fit = ${formatNumber(bfI.converted)} ${bfI.sym}A`);
+  out.push(`R: raw = ${formatNumber(R)} Ω    → best-fit = ${formatNumber(bfR.converted)} ${bfR.sym}Ω`);
+  out.push(`P: raw = ${formatNumber(P)} W    → best-fit = ${formatNumber(bfP.converted)} ${bfP.sym}W`);
+
+  document.getElementById('ohmResult').textContent = out.join('\n');
+}
+function clearOhm(){
+  ['V','I','R','P'].forEach(k=>document.getElementById('ohm'+k).value='');
+  document.getElementById('ohmResult').textContent = 'No calculation yet.';
+}
+
+/* ----------------- Resistors with per-resistor prefix dropdown ----------------- */
+function makePrefixSelectElement(defaultToken='BASE'){
+  const sel = document.createElement('select');
+  prefixes.forEach(p=>{
+    const opt = new Option(p.sym ? `${p.sym} (${p.name})` : `Base (${p.name})`, p.sym || 'BASE');
+    sel.add(opt);
+  });
+  sel.value = defaultToken;
+  return sel;
+}
+
+function addResistor(type){
+  const container = document.getElementById(type + 'List');
+  const row = document.createElement('div');
+  row.className = 'res-row';
+
+  const inp = document.createElement('input');
+  inp.type = 'number';
+  inp.step = 'any';
+  inp.placeholder = 'value (e.g. 10)';
+
+  const sel = makePrefixSelectElement('BASE');
+  sel.title = 'Prefix (e.g. k = kilo)';
+
+  const rm = document.createElement('button');
+  rm.type='button';
+  rm.textContent='Remove';
+  rm.onclick = () => container.removeChild(row);
+
+  row.appendChild(inp);
+  row.appendChild(sel);
+  row.appendChild(rm);
+  container.appendChild(row);
+}
+
+function clearResistors(type){
+  document.getElementById(type + 'List').innerHTML = '';
+  document.getElementById(type === 'series' ? 'seriesResult' : 'parallelResult').textContent = 'No calculation yet.';
+}
+
+function calcSeries(){
+  const rows = document.getElementById('seriesList').querySelectorAll('.res-row');
+  const lines = [];
+  let total = 0;
+  rows.forEach(r=>{
+    const v = parseFloat(r.querySelector('input').value);
+    const token = r.querySelector('select').value;
+    if (!Number.isNaN(v)){
+      const factor = findPrefixFactor(token);
+      const base = v * factor;
+      lines.push(`${formatNumber(v)} × ${formatNumber(factor)} = ${formatNumber(base)} Ω`);
+      total += base;
+    }
+  });
+  if (lines.length === 0){
+    document.getElementById('seriesResult').textContent = 'Add at least one resistor value.';
+    return;
+  }
+  const bf = chooseBestFit(total);
+  const out = [];
+  out.push('Per-resistor → base conversions:');
+  out.push(...lines);
+  out.push('');
+  out.push(`Sum (series): ${lines.map(l => l.split(' = ')[1]).join(' + ')} = ${formatNumber(total)} Ω`);
+  out.push('');
+  out.push(`Best-fit: ${formatNumber(bf.converted)} ${bf.sym}Ω`);
+  document.getElementById('seriesResult').textContent = out.join('\n');
+}
+
+function calcParallel(){
+  const rows = document.getElementById('parallelList').querySelectorAll('.res-row');
+  const lines = [];
+  let recipSum = 0;
+  const recipParts = [];
+  rows.forEach(r=>{
+    const v = parseFloat(r.querySelector('input').value);
+    const token = r.querySelector('select').value;
+    if (!Number.isNaN(v) && v !== 0){
+      const factor = findPrefixFactor(token);
+      const base = v * factor;
+      lines.push(`${formatNumber(v)} × ${formatNumber(factor)} = ${formatNumber(base)} Ω`);
+      recipParts.push(`1/${formatNumber(base)}`);
+      recipSum += 1 / base;
+    }
+  });
+  if (lines.length === 0){
+    document.getElementById('parallelResult').textContent = 'Add at least one non-zero resistor value.';
+    return;
+  }
+  const total = recipSum ? (1 / recipSum) : Infinity;
+  const bf = chooseBestFit(total);
+  const out = [];
+  out.push('Per-resistor → base conversions:');
+  out.push(...lines);
+  out.push('');
+  out.push(`1/R_total = ${recipParts.join(' + ')} = ${formatNumber(recipSum)}`);
+  out.push(`R_total = 1 / ${formatNumber(recipSum)} = ${formatNumber(total)} Ω`);
+  out.push('');
+  out.push(`Best-fit: ${formatNumber(bf.converted)} ${bf.sym}Ω`);
+  document.getElementById('parallelResult').textContent = out.join('\n');
+}
+
+/* ---------- Initialize convenience inputs ---------- */
+addResistor('series');
+addResistor('series');
+addResistor('parallel');
+addResistor('parallel');
+
+/* ---------- small UX: Enter triggers ---------- */
+document.getElementById('manualValue').addEventListener('keydown', e => { if (e.key === 'Enter') manualConvert(); });
+document.getElementById('autoValue').addEventListener('keydown', e => { if (e.key === 'Enter') autoConvert(); });
+['ohmV','ohmI','ohmR','ohmP'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') solveOhms(); });
+});
+</script>
+</body>
+</html>

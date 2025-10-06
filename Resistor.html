@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Resistor Color Code Calculator</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
+    body{font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#071024 0%,#051018 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:18px;max-width:900px;width:100%;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 6px 0;font-size:20px}
+    p.lead{margin:0 0 18px 0;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    label{font-size:13px;color:var(--muted)}
+    select,input[type=number]{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:inherit}
+    .bands{display:flex;gap:10px;align-items:center;margin:18px 0}
+    .band{width:48px;height:140px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:inset 0 -6px 20px rgba(0,0,0,0.35);position:relative}
+    .band .label{position:absolute;bottom:6px;font-size:12px;color:rgba(0,0,0,0.6)}
+    .palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .sw{width:28px;height:20px;border-radius:4px;border:1px solid rgba(0,0,0,0.2);cursor:pointer}
+    .result{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .tile{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+    .big{font-size:20px;font-weight:600}
+    footer{margin-top:14px;color:var(--muted);font-size:12px}
+    .row{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#022;cursor:pointer}
+    .math{margin-top:8px;font-size:13px;color:var(--muted)}
+    @media(max-width:720px){.bands{overflow:auto;padding-bottom:6px}.band{height:120px;width:38px}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Resistor Color Code Calculator</h1>
+    <p class="lead">Supports 3, 4, and 5-band resistors. Shows resistance, tolerance, min/max range, nearest standard value, and the math used.</p>
+
+    <div class="controls">
+      <div>
+        <label for="bandsCount">Bands</label><br>
+        <select id="bandsCount">
+          <option value="3">3-band</option>
+          <option value="4" selected>4-band</option>
+          <option value="5">5-band</option>
+        </select>
+      </div>
+      <div>
+        <label for="unitPref">Display unit</label><br>
+        <select id="unitPref"><option value="auto">Auto (Ω/kΩ/MΩ)</option><option value="ohm">Ω</option><option value="kohm">kΩ</option><option value="mohm">MΩ</option></select>
+      </div>
+      <div>
+        <label for="showE12">Show nearest E12?</label><br>
+        <select id="showE12"><option value="yes">Yes</option><option value="no">No</option></select>
+      </div>
+    </div>
+
+    <div class="bands" id="bandsContainer"></div>
+    <div class="palette" id="palette"></div>
+
+    <div class="result">
+      <div class="tile">
+        <div style="color:var(--muted);font-size:12px">Resistance</div>
+        <div id="resText" class="big">—</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="rawText">Raw value: — Ω</div>
+        <div class="math" id="mathText">Math: —</div>
+      </div>
+      <div class="tile">
+        <div style="color:var(--muted);font-size:12px">Tolerance & Range</div>
+        <div id="tolText" class="big">—</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="rangeText">Min/Max: —</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:6px" id="e12Text">Nearest E12: —</div>
+      </div>
+    </div>
+
+    <footer>
+      Tip: click a color in the palette to apply it to the selected band. Click a band to select it.
+      <div style="margin-top:8px" class="row">
+        <button id="copyBtn">Copy color code</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const colors = [
+      {name:'black',val:'#000000',digit:0,mult:1,tol:null},
+      {name:'brown',val:'#6b4423',digit:1,mult:10,tol:1},
+      {name:'red',val:'#b32a2a',digit:2,mult:100,tol:2},
+      {name:'orange',val:'#ff7a18',digit:3,mult:1000,tol:null},
+      {name:'yellow',val:'#e6d21f',digit:4,mult:10000,tol:null},
+      {name:'green',val:'#117a50',digit:5,mult:100000,tol:0.5},
+      {name:'blue',val:'#175cbb',digit:6,mult:1000000,tol:0.25},
+      {name:'violet',val:'#6e3ba6',digit:7,mult:10000000,tol:0.1},
+      {name:'grey',val:'#6b6f76',digit:8,mult:100000000,tol:0.05},
+      {name:'white',val:'#ffffff',digit:9,mult:1000000000,tol:null},
+      {name:'gold',val:'#c19100',digit:null,mult:0.1,tol:5},
+      {name:'silver',val:'#bfc7cf',digit:null,mult:0.01,tol:10}
+    ];
+
+    const e12 = [1.0,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2];
+
+    const bandsContainer = document.getElementById('bandsContainer');
+    const palette = document.getElementById('palette');
+    const bandsCount = document.getElementById('bandsCount');
+    const unitPref = document.getElementById('unitPref');
+    const showE12 = document.getElementById('showE12');
+
+    let selectedBand = 0;
+    let bandColors = [];
+
+    function createPalette(){
+      palette.innerHTML='';
+      colors.forEach((c,idx)=>{
+        const sw=document.createElement('div');
+        sw.className='sw';
+        sw.style.background=c.val;
+        sw.title=c.name;
+        sw.addEventListener('click',()=>{
+          bandColors[selectedBand]=idx;
+          renderBands();
+          compute();
+        });
+        palette.appendChild(sw);
+      });
+    }
+
+    function renderBands(){
+      bandsContainer.innerHTML='';
+      const count = parseInt(bandsCount.value,10);
+      const bandNames = (count===3)?['1','2','mult']:(count===4)?['1','2','mult','tol']:['1','2','3','mult','tol'];
+      for(let i=0;i<bandNames.length;i++){
+        const el=document.createElement('div');
+        el.className='band';
+        const cIndex = bandColors[i];
+        el.style.background = cIndex!=null ? colors[cIndex].val : 'linear-gradient(180deg,#0a1530,#062031)';
+        el.dataset.index=i;
+        const lbl=document.createElement('div'); lbl.className='label'; lbl.textContent=bandNames[i];
+        el.appendChild(lbl);
+        el.addEventListener('click',()=>{selectedBand=i; renderBands();});
+        if(i===selectedBand){ el.style.outline='3px solid rgba(96,165,250,0.18)'; }
+        bandsContainer.appendChild(el);
+      }
+    }
+
+    function compute(){
+      const count = parseInt(bandsCount.value,10);
+      const idxs = bandColors.slice();
+      const resultEl = document.getElementById('resText');
+      const rawEl = document.getElementById('rawText');
+      const tolEl = document.getElementById('tolText');
+      const e12El = document.getElementById('e12Text');
+      const rangeEl = document.getElementById('rangeText');
+      const mathEl = document.getElementById('mathText');
+
+      if((count===3 && (idxs[0]==null||idxs[1]==null||idxs[2]==null)) ||
+         (count===4 && (idxs[0]==null||idxs[1]==null||idxs[2]==null)) ||
+         (count===5 && (idxs[0]==null||idxs[1]==null||idxs[2]==null||idxs[3]==null))){
+        resultEl.textContent='—'; rawEl.textContent='Raw value: — Ω'; tolEl.textContent='—'; e12El.textContent='—'; rangeEl.textContent='—'; mathEl.textContent='Math: —'; return;
+      }
+
+      let digits=[],multiplier,tol;
+      if(count===3){
+        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit];
+        multiplier=colors[idxs[2]].mult;
+        tol=5; // default 3-band tolerance ±5%
+      } else if(count===4){
+        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit];
+        multiplier=colors[idxs[2]].mult;
+        tol=colors[idxs[3]]?colors[idxs[3]].tol:5;
+      } else {
+        digits=[colors[idxs[0]].digit, colors[idxs[1]].digit, colors[idxs[2]].digit];
+        multiplier=colors[idxs[3]].mult;
+        tol=colors[idxs[4]]?colors[idxs[4]].tol:5;
+      }
+
+      if(digits.some(d=>d==null)){ resultEl.textContent='Invalid'; return; }
+
+      let base=0; for(let i=0;i<digits.length;i++){ base = base*10 + digits[i]; }
+      let raw = base * multiplier;
+
+      function fmt(v){
+        const pref=unitPref.value;
+        if(pref==='ohm') return v.toLocaleString()+" Ω";
+        if(pref==='kohm') return (v/1e3).toLocaleString()+" kΩ";
+        if(pref==='mohm') return (v/1e6).toLocaleString()+" MΩ";
+        if(v>=1e6) return (v/1e6).toFixed(3).replace(/\.0+$/,'')+" MΩ";
+        if(v>=1e3) return (v/1e3).toFixed(3).replace(/\.0+$/,'')+" kΩ";
+        return v+" Ω";
+      }
+
+      resultEl.textContent = fmt(raw);
+      rawEl.textContent = 'Raw value: ' + raw + ' Ω';
+      tolEl.textContent = '±' + tol + ' %';
+
+      let min = raw * (1 - tol/100);
+      let max = raw * (1 + tol/100);
+      rangeEl.textContent = fmt(min) + ' — ' + fmt(max);
+
+      mathEl.textContent = 'Math: ('+digits.join('')+') × ' + multiplier + ' = ' + raw + ' Ω';
+
+      if(showE12.value==='yes'){
+        let best={diff:Infinity,val:null};
+        for(let exp=-2;exp<=9;exp++){
+          e12.forEach(mult=>{
+            const v = mult * Math.pow(10,exp);
+            const diff = Math.abs(v-raw);
+            if(diff < best.diff){ best={diff,v}; }
+          });
+        }
+        e12El.textContent = best.val.toLocaleString()+ ' Ω (Δ '+Math.round(best.diff)+' Ω)';
+      } else {
+        e12El.textContent='—';
+      }
+    }
+
+    bandsCount.addEventListener('change',()=>{
+      const count=parseInt(bandsCount.value,10);
+      if(count===3){ bandColors = [null,null,null]; }
+      if(count===4){ bandColors = [null,null,null,null]; }
+      if(count===5){ bandColors = [null,null,null,null,null]; }
+      selectedBand=0; renderBands(); compute();
+    });
+    unitPref.addEventListener('change',compute);
+    showE12.addEventListener('change',compute);
+
+    document.getElementById('resetBtn').addEventListener('click',()=>{ bandColors=[null,null,null]; selectedBand=0; renderBands(); compute(); });
+    document.getElementById('copyBtn').addEventListener('click',()=>{
+      const code = bandColors.map(i=> i!=null? colors[i].name : '—').join(', ');
+      navigator.clipboard?.writeText(code).then(()=>{ alert('Copied: '+code); }).catch(()=>{ prompt('Copy this:', code); });
+    });
+
+    function init(){ bandColors=[null,null,null]; createPalette(); renderBands(); compute(); }
+    init();
+  </script>
+</body>
+</html>
