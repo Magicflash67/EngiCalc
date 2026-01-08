@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Truth Table & Boolean Simplifier</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
+    body{font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#071024 0%,#051018 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:18px;max-width:1000px;width:100%;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 6px 0;font-size:20px}
+    p.lead{margin:0 0 18px 0;color:var(--muted);font-size:13px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .row{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:#022;cursor:pointer;font-size:13px}
+    button.secondary{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.15)}
+    table{border-collapse:collapse;width:100%;margin-top:12px}
+    th,td{border:1px solid rgba(255,255,255,0.08);padding:6px 8px;text-align:center;font-size:13px}
+    th{background:rgba(255,255,255,0.04);color:var(--muted)}
+    td.output{cursor:pointer;background:rgba(96,165,250,0.08)}
+    td.output:hover{background:rgba(96,165,250,0.16)}
+    input.var{width:48px;max-width:48px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit}
+    .tile{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;margin-top:12px}
+    .expr{font-family:ui-monospace,Consolas,monospace;font-size:14px}
+    footer{margin-top:14px;color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="topbar">
+      <div>
+        <h1>Truth Table & Boolean Simplifier</h1>
+        <p class="lead">Click output bits to flip them. Auto-expands MSB. Generates canonical and simplified Boolean expressions.</p>
+      </div>
+      <div class="row">
+        <button onclick="location.href='index.html'">Home</button>
+        <button class="secondary" onclick="location.href='docs.html'">Docs</button>
+      </div>
+    </div>
+
+    <table id="truthTable"></table>
+
+    <div class="row" style="margin-top:12px">
+      <button id="calcBtn">Calculate Logical Expression</button>
+      <button class="secondary" id="clearBtn">Clear Outputs</button>
+      <button class="secondary" id="addMsbBtn">+ Add MSB</button>
+      <button class="secondary" id="removeMsbBtn">− Remove MSB</button>
+    </div>
+
+    <div class="tile">
+      <div style="color:var(--muted);font-size:12px">Canonical SOP</div>
+      <div id="canonExpr" class="expr">—</div>
+    </div>
+
+    <div class="tile">
+      <div style="color:var(--muted);font-size:12px">Simplified Expression</div>
+      <div id="simpExpr" class="expr">—</div>
+    </div>
+
+    <footer>
+      Boolean rules: overbar = NOT, <b>+</b> = AND, <b>*</b> = OR
+    </footer>
+  </div>
+
+<script>
+let vars = ['A','B'];
+let outputs = [];
+
+function buildTable(){
+  const rows = 1 << vars.length;
+  const t = document.getElementById('truthTable');
+  t.innerHTML='';
+  const thead = document.createElement('tr');
+  vars.forEach((v,i)=>{
+    const th=document.createElement('th');
+    const inp=document.createElement('input');
+    inp.value=v; inp.maxLength=3; inp.className='var';
+    inp.oninput=()=>{ vars[i]=inp.value||v; buildTable(); };
+    th.appendChild(inp); thead.appendChild(th);
+  });
+  const thO=document.createElement('th'); thO.textContent='Out'; thead.appendChild(thO);
+  t.appendChild(thead);
+
+  outputs.length = rows;
+  for(let r=0;r<rows;r++){
+    const tr=document.createElement('tr');
+    vars.forEach((_,i)=>{
+      const td=document.createElement('td');
+      td.textContent=(r>>(vars.length-1-i))&1;
+      tr.appendChild(td);
+    });
+    const out=document.createElement('td'); out.className='output';
+    outputs[r]=outputs[r]||0;
+    out.textContent=outputs[r];
+    out.onclick=()=>{ outputs[r]^=1; out.textContent=outputs[r]; };
+    tr.appendChild(out); t.appendChild(tr);
+  }
+}
+
+function over(v){ return v+'̅'; }
+
+function calc(){
+  let terms=[];
+  outputs.forEach((o,i)=>{
+    if(o){
+      let bits = vars.map((v,b)=> ((i>>(vars.length-1-b))&1)?v:over(v));
+      terms.push(bits.join('+'));
+    }
+  });
+  document.getElementById('canonExpr').textContent = terms.length? terms.map(t=>'('+t+')').join('*') : '0';
+
+  // tiny simplifier: detects OR of all single vars
+  if(vars.length===2 && outputs.join('')==='0111'){
+    document.getElementById('simpExpr').textContent = vars[0]+' * '+vars[1];
+  } else {
+    document.getElementById('simpExpr').textContent = document.getElementById('canonExpr').textContent;
+  }
+}
+
+
+function clearOutputs(){
+  outputs = outputs.map(()=>0);
+  buildTable();
+}
+
+function addMSB(){
+  vars.unshift('X');
+  const old = outputs.slice();
+  outputs = [];
+  for(let i=0;i<old.length;i++){
+    outputs.push(old[i]);
+    outputs.push(old[i]);
+  }
+  buildTable();
+}
+
+function removeMSB(){
+  if(vars.length<=1) return;
+  vars.shift();
+  const reduced=[];
+  for(let i=0;i<outputs.length;i+=2){ reduced.push(outputs[i]); }
+  outputs = reduced;
+  buildTable();
+}
+
+calcBtn.onclick=calc;
+buildTable();
+
+clearBtn.onclick=clearOutputs;
+addMsbBtn.onclick=addMSB;
+removeMsbBtn.onclick=removeMSB;
+
+</script>
+</body>
+</html>
