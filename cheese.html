@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Karnaugh Map — Truth Table & Simplifier</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
+    body{font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:linear-gradient(180deg,#071024 0%,#051018 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:18px;max-width:1100px;width:100%;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 6px 0;font-size:20px}
+    p.lead{margin:0 0 18px 0;color:var(--muted);font-size:13px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .row{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:#022;cursor:pointer;font-size:13px}
+    button.secondary{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.15)}
+    table{border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid rgba(255,255,255,0.08);padding:6px 8px;text-align:center;font-size:13px}
+    td.cell{width:48px;height:48px;cursor:pointer;background:rgba(255,255,255,0.02);position:relative}
+    td.cell .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Consolas,monospace}
+    td.cell.on{background:rgba(96,165,250,0.12)}
+    td.cell.highlight{box-shadow:inset 0 0 0 3px rgba(0,0,0,0.25)}
+    input.var{width:56px;max-width:56px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit}
+    .tile{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;margin-top:12px}
+    .expr{font-family:ui-monospace,Consolas,monospace;font-size:14px}
+    footer{margin-top:14px;color:var(--muted);font-size:12px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .grid-wrap{display:flex;gap:18px;align-items:flex-start}
+    .kmap{display:inline-block}
+    .legend{font-size:12px;color:var(--muted);margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="topbar">
+      <div>
+        <h1>KMappper — Truth Table & Simplifier</h1>
+        <p class="lead">Enter variable names or minterm numbers, toggle cells, then click <b>Auto Group & Simplify</b>. Use Bit positions to set MSB→LSB mapping. Notation: overbar = NOT, <b>+</b> = AND (in product term), <b>*</b> = OR (between terms).</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Vars: <input id="varsInput" class="var" value="A,B,C,D"></label>
+      <!-- position controls inserted here by script -->
+      <label style="margin-left:12px">Minterms: <input id="minInput" style="width:220px" placeholder="e.g. 0,1,3,7"></label>
+      <button id="applyMins">Apply Minterms</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+      <button id="simplifyBtn">Auto Group & Simplify</button>
+      <button id="canonBtn" class="secondary">Show Canonical SOP</button>
+    </div>
+
+    <div class="grid-wrap" style="margin-top:12px">
+      <div id="kmapContainer" class="kmap"></div>
+
+      <div style="min-width:320px">
+        <div class="tile">
+          <div style="color:var(--muted);font-size:12px">Canonical SOP</div>
+          <div id="canonExpr" class="expr">—</div>
+        </div>
+
+        <div class="tile">
+          <div style="color:var(--muted);font-size:12px">Simplified Expression (from groups)</div>
+          <div id="simpExpr" class="expr">—</div>
+        </div>
+
+        <div class="tile">
+          <div style="color:var(--muted);font-size:12px">Detected Groups (cells listed)</div>
+          <div id="groupsList" class="expr">—</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      (overbar = NOT, + inside term = AND, * between terms = OR).
+    </footer>
+  </div>
+
+<script>
+// --- Utilities ---
+function over(v){ return v+'̅'; }
+function randColor(i){ const hues=[50,140,200,260,320,10,80]; const h=hues[i%hues.length]; return `hsla(${h} 80% 60% / 0.24)`; }
+
+let vars = ['A','B','C','D'];
+let n = 4;
+let cells = new Array(1<<n).fill(0);
+let groups = [];
+// varPos: variable index -> position (0 = MSB, n-1 = LSB)
+let varPos = [0,1,2,3];
+
+const kmapContainer = document.getElementById('kmapContainer');
+const varsInput = document.getElementById('varsInput');
+const minInput = document.getElementById('minInput');
+const applyMins = document.getElementById('applyMins');
+const simplifyBtn = document.getElementById('simplifyBtn');
+const clearBtn = document.getElementById('clearBtn');
+const canonBtn = document.getElementById('canonBtn');
+
+// position controls container (insert next to Vars)
+const posControlsWrap = document.createElement('span');
+posControlsWrap.id = 'posControls';
+posControlsWrap.style.marginLeft = '12px';
+// <-- important: insert into the .controls wrapper so referenceNode is a child of the parent -->
+const controlsDiv = varsInput.closest('.controls') || varsInput.parentNode.parentNode;
+controlsDiv.insertBefore(posControlsWrap, minInput.parentNode);
+
+varsInput.oninput = ()=>{ parseVars(); build(); };
+applyMins.onclick = ()=>{ applyMinterms(); build(); };
+clearBtn.onclick = ()=>{ cells.fill(0); groups=[]; build(); updateExpressions(); };
+simplifyBtn.onclick = ()=>{ autoGroup(); updateExpressions(); };
+canonBtn.onclick = ()=>{ updateExpressions(true); };
+
+function normalizeVarPos(){
+  // ensure varPos is a permutation of [0..n-1]
+  const used = new Set();
+  for(let i=0;i<n;i++){
+    if(typeof varPos[i] !== 'number' || varPos[i] < 0 || varPos[i] >= n || used.has(varPos[i])){
+      for(let p=0;p<n;p++) if(!used.has(p)){ varPos[i]=p; used.add(p); break; }
+    } else used.add(varPos[i]);
+  }
+}
+
+function renderPosControls(){
+  posControlsWrap.innerHTML = '';
+  const label = document.createElement('label');
+  label.style.fontSize='12px';
+  label.style.color='var(--muted)';
+  label.textContent = 'Bit positions:';
+  posControlsWrap.appendChild(label);
+  vars.forEach((v,vi)=>{
+    const s = document.createElement('select');
+    s.style.marginLeft='6px';
+    for(let p=0;p<n;p++){ const o = document.createElement('option'); o.value=p; o.textContent = p===0? `MSB(0)` : (p===n-1? `LSB(${p})` : `${p}`); s.appendChild(o); }
+    s.value = String(varPos[vi]);
+    s.onchange = ()=>{
+      const newP = parseInt(s.value,10);
+      const other = varPos.indexOf(newP);
+      if(other !== -1 && other !== vi){ varPos[other] = varPos[vi]; }
+      varPos[vi] = newP;
+      normalizeVarPos();
+      renderPosControls();
+      build();
+    };
+    const span = document.createElement('span');
+    span.style.marginLeft='6px';
+    span.style.fontSize='13px';
+    span.title = `Variable ${v}`;
+    span.appendChild(document.createTextNode(v+' '));
+    span.appendChild(s);
+    posControlsWrap.appendChild(span);
+  });
+}
+
+function parseVars(){
+  const v = varsInput.value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(v.length===0) return;
+  if(v.length>4) v.splice(4);
+  vars = v;
+  n = vars.length;
+  const size = 1<<n;
+  if(cells.length !== size) cells = new Array(size).fill(0);
+  const old = varPos.slice();
+  varPos = new Array(n).fill(0).map((_,i)=> i < old.length ? old[i] : i);
+  normalizeVarPos();
+  renderPosControls();
+}
+
+function applyMinterms(){
+  const txt = minInput.value.trim();
+  cells.fill(0);
+  if(!txt) return;
+  txt.split(',').map(s=>s.trim()).filter(Boolean).forEach(tok=>{
+    const m = parseInt(tok,10);
+    if(!Number.isNaN(m) && m>=0 && m < (1<<n)) cells[m]=1;
+  });
+}
+
+// convert variable index -> bit position in the integer index (0 = LSB)
+function bitPosForVar(varIndex){
+  // varPos: 0 = MSB, so bit position (LSB=0) = (n-1 - varPos[varIndex])
+  return (n-1) - varPos[varIndex];
+}
+
+// Build K-map HTML using varPos mapping (rows/cols use positions)
+function build(){
+  kmapContainer.innerHTML='';
+  if(n===0) return;
+
+  const half = Math.floor(n/2);
+  const rowPosIndices = (n<=2)? [0] : Array.from({length:half},(_,i)=>i);
+  const colPosIndices = (n<=2)? [1] : Array.from({length:n-half},(_,i)=> i+half);
+
+  // inverse: pos -> varIndex
+  const inv = new Array(n);
+  for(let vi=0; vi<n; vi++) inv[varPos[vi]] = vi;
+
+  function graySequence(posIndices){
+    const k = posIndices.length;
+    const seq = [];
+    for(let i=0;i<(1<<k);i++){
+      const gray = i ^ (i>>1);
+      let bits=0;
+      for(let j=0;j<k;j++){
+        const varIndex = inv[posIndices[j]];
+        if(((gray>> (k-1-j)) &1)) bits |= 1 << bitPosForVar(varIndex);
+      }
+      seq.push(bits);
+    }
+    return seq;
+  }
+
+  const rowSeq = graySequence(rowPosIndices);
+  const colSeq = graySequence(colPosIndices);
+
+  const tbl = document.createElement('table');
+  const header = document.createElement('tr');
+  header.appendChild(document.createElement('th'));
+  colSeq.forEach(colBits=>{
+    const th = document.createElement('th');
+    const labels = colPosIndices.map((pos,idx)=>{
+      const vi = inv[pos];
+      const bit = ((colBits >> bitPosForVar(vi)) &1) ? '1':'0';
+      return vars[vi]+bit;
+    });
+    th.textContent = labels.join(' ');
+    header.appendChild(th);
+  });
+  tbl.appendChild(header);
+
+  rowSeq.forEach(rowBits=>{
+    const tr = document.createElement('tr');
+    const rowLabel = document.createElement('th');
+    const labels = rowPosIndices.map((pos,idx)=>{
+      const vi = inv[pos];
+      const bit = ((rowBits >> bitPosForVar(vi)) &1) ? '1':'0';
+      return vars[vi]+bit;
+    });
+    rowLabel.textContent = labels.join(' ');
+    tr.appendChild(rowLabel);
+
+    colSeq.forEach(colBits=>{
+      const idx = (rowBits | colBits);
+      const td = document.createElement('td'); td.className='cell';
+      td.dataset.idx = idx;
+      const val = document.createElement('div'); val.className='val'; val.textContent = cells[idx]||0;
+      td.appendChild(val);
+      td.onclick = ()=>{ cells[idx] ^=1; build(); };
+      if(cells[idx]) td.classList.add('on');
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+
+  kmapContainer.appendChild(tbl);
+  applyHighlights();
+}
+
+function applyHighlights(){
+  const tds = kmapContainer.querySelectorAll('td.cell');
+  tds.forEach(td=>{ td.style.outline=''; td.style.boxShadow=''; td.classList.remove('highlight'); td.style.background=''; });
+  groups.forEach((g,i)=>{
+    const color = randColor(i);
+    g.indices.forEach(idx=>{
+      const td = kmapContainer.querySelector(`td.cell[data-idx='${idx}']`);
+      if(td){ td.style.background = color; td.classList.add('highlight'); }
+    });
+  });
+}
+
+// --- Grouping logic ---
+function autoGroup(){
+  groups = [];
+  const N = 1<<n;
+  const sizes = [];
+  for(let s = 1<<Math.floor(Math.log2(N)); s>=1; s>>=1) sizes.push(s);
+
+  for(const size of sizes){
+    const fixedCount = n - Math.log2(size);
+    const masks = combinations(Array.from({length:n},(_,i)=>i), fixedCount);
+    masks.forEach(fixedVars=>{
+      const assignments = 1<<fixedVars.length;
+      for(let a=0;a<assignments;a++){
+        let fixedMask=0, fixedValue=0;
+        fixedVars.forEach((varIdx,j)=>{
+          const bitpos = bitPosForVar(varIdx);
+          fixedMask |= (1<<bitpos);
+          const val = (a>> (fixedVars.length-1-j)) &1;
+          if(val) fixedValue |= (1<<bitpos);
+        });
+        const inds = [];
+        for(let idx=0; idx<N; idx++) if((idx & fixedMask) === fixedValue) inds.push(idx);
+        if(inds.length !== size) continue;
+        const allOnes = inds.every(i=>cells[i]===1);
+        if(!allOnes) continue;
+        groups.push({indices: inds.slice(), fixedMask, fixedValue});
+      }
+    });
+  }
+
+  // dedupe & prune supersets
+  groups = groups.filter((g,idx,arr)=> idx === arr.findIndex(h=> sameSet(h.indices,g.indices)));
+  groups = groups.filter(g=> !groups.some(h=> h!==g && isSuperset(h.indices, g.indices)));
+  groups.sort((a,b)=> b.indices.length - a.indices.length);
+
+  // select essential + greedy cover
+  groups = selectPrimeImplicantCover(groups);
+  build();
+}
+
+function isSuperset(a,b){ const sa=new Set(a); return b.every(x=>sa.has(x)); }
+
+function combinations(arr, k){
+  const res=[];
+  function rec(start, cur){
+    if(cur.length===k){ res.push(cur.slice()); return; }
+    for(let i=start;i<arr.length;i++){ cur.push(arr[i]); rec(i+1,cur); cur.pop(); }
+  }
+  rec(0,[]);
+  return res;
+}
+
+function sameSet(a,b){ if(a.length!==b.length) return false; const sa=new Set(a); return b.every(x=>sa.has(x)); }
+
+// --- Prime implicant selection ---
+function selectPrimeImplicantCover(candidateGroups){
+  const N = 1<<n;
+  const ones = [];
+  for(let i=0;i<N;i++) if(cells[i]) ones.push(i);
+  if(ones.length===0) return [];
+  const gsets = candidateGroups.map(g=> ({...g, set: new Set(g.indices)}));
+  const covers = {};
+  ones.forEach(m=>{ covers[m]= []; gsets.forEach((g,gi)=>{ if(g.set.has(m)) covers[m].push(gi); }); });
+  const selected = new Set();
+  const covered = new Set();
+  for(const m of ones){
+    const coverers = covers[m];
+    if(coverers.length===1){ selected.add(coverers[0]); }
+  }
+  selected.forEach(si=> gsets[si].indices.forEach(i=> covered.add(i)));
+  let remaining = ones.filter(m=>!covered.has(m));
+  while(remaining.length>0){
+    let best = -1, bestScore = -1, bestSize= -1;
+    gsets.forEach((g,gi)=>{
+      if(selected.has(gi)) return;
+      let score = 0;
+      remaining.forEach(m=>{ if(g.set.has(m)) score++; });
+      if(score>bestScore || (score===bestScore && g.indices.length>bestSize)){
+        best = gi; bestScore = score; bestSize = g.indices.length;
+      }
+    });
+    if(best===-1 || bestScore===0) break;
+    selected.add(best);
+    gsets[best].indices.forEach(i=> covered.add(i));
+    remaining = ones.filter(m=>!covered.has(m));
+  }
+  const result = Array.from(selected).map(si=> candidateGroups[si]);
+  return result.sort((a,b)=> b.indices.length - a.indices.length);
+}
+
+// --- Expression generation ---
+function canonicalSOP(){
+  const terms=[];
+  for(let idx=0; idx< (1<<n); idx++){
+    if(cells[idx]){
+      const lits=[];
+      for(let i=0;i<n;i++){
+        const bit = (idx >> bitPosForVar(i)) &1;
+        lits.push(bit? vars[i] : over(vars[i]));
+      }
+      terms.push('('+lits.join('+')+')');
+    }
+  }
+  return terms.length? terms.join('*') : '0';
+}
+
+function simplifiedFromGroups(){
+  if(groups.length===0) return '—';
+  const terms = groups.map(g=>{
+    const lits = [];
+    for(let i=0;i<n;i++){
+      const bp = bitPosForVar(i);
+      let first = (g.indices[0] >> bp) &1;
+      let same = g.indices.every(idx=> ((idx>>bp)&1) === first);
+      if(same){ lits.push(first? vars[i] : over(vars[i])); }
+    }
+    return '('+ (lits.length? lits.join('+') : '1') +')';
+  });
+  return terms.join('*');
+}
+
+function groupsListText(){
+  if(groups.length===0) return '—';
+  return groups.map((g,i)=>`G${i+1}: {${g.indices.join(',')}}`).join('\n');
+}
+
+function updateExpressions(showCanonicalOnly=false){
+  const canon = canonicalSOP();
+  document.getElementById('canonExpr').textContent = canon;
+  if(showCanonicalOnly){ document.getElementById('simpExpr').textContent = '—'; document.getElementById('groupsList').textContent = groupsListText(); applyHighlights(); return; }
+  const simp = simplifiedFromGroups();
+  function lenExpr(e){ return e.replace(/\s+/g,'').length; }
+  const final = (simp==='—' || lenExpr(simp) >= lenExpr(canon)) ? canon : simp;
+  document.getElementById('simpExpr').textContent = final;
+  document.getElementById('groupsList').textContent = groupsListText();
+  applyHighlights();
+}
+
+// initial parse
+parseVars(); build(); updateExpressions();
+
+</script>
+</body>
+</html>
